@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HSA Growth Engine | Save, Spend, Invest</title>
+    <meta name="description" content="Interactive HSA savings calculator with contribution planning, tax savings breakdown, and compound growth projector.">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        /* ============================================
+           DESIGN TOKENS
+           ============================================ */
+        :root {
+            --bg: #0b0b0b;
+            --surface: #141414;
+            --surface-hover: #1a1a1a;
+            --border: #222;
+            --text: #e8e8e8;
+            --muted: #888;
+            --accent: #8a9a7b;
+            --accent-hover: #9dae8e;
+            --accent-dim: rgba(138, 154, 123, 0.15);
+            --green: #6fbf73;
+            --blue: #5b9bd5;
+            --orange: #e8a838;
+            --radius: 8px;
+            --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+        }
+
+        /* ============================================
+           RESET & BASE
+           ============================================ */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* ============================================
+           HEADER
+           ============================================ */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            background: var(--bg);
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .logo-mark {
+            width: 28px;
+            height: 28px;
+            background: var(--accent);
+            border-radius: 4px;
+            display: grid;
+            place-items: center;
+            font-size: 14px;
+            font-weight: 800;
+            color: var(--bg);
+        }
+
+        .header-badge {
+            font-size: 0.7rem;
+            color: var(--muted);
+            border: 1px solid var(--border);
+            padding: 0.25rem 0.6rem;
+            border-radius: 20px;
+        }
+
+        /* ============================================
+           LAYOUT
+           ============================================ */
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .hero {
+            text-align: center;
+            padding: 2.5rem 0 2rem;
+        }
+
+        .hero h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .hero h1 span { color: var(--accent); }
+
+        .hero p {
+            color: var(--muted);
+            font-size: 0.95rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .grid--full {
+            grid-template-columns: 1fr;
+        }
+
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+            .container { padding: 1rem; }
+            .hero h1 { font-size: 1.4rem; }
+        }
+
+        /* ============================================
+           CARDS
+           ============================================ */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+        }
+
+        .card-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--accent);
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        /* ============================================
+           FORM CONTROLS
+           ============================================ */
+        .field {
+            margin-bottom: 1rem;
+        }
+
+        .field label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-bottom: 0.35rem;
+        }
+
+        .field input, .field select {
+            width: 100%;
+            padding: 0.55rem 0.75rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-family: var(--font);
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .field input:focus, .field select:focus {
+            border-color: var(--accent);
+        }
+
+        .toggle-group {
+            display: flex;
+            gap: 0;
+            margin-bottom: 1rem;
+        }
+
+        .toggle-group button {
+            flex: 1;
+            padding: 0.5rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--muted);
+            font-family: var(--font);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .toggle-group button:first-child {
+            border-radius: var(--radius) 0 0 var(--radius);
+        }
+
+        .toggle-group button:last-child {
+            border-radius: 0 var(--radius) var(--radius) 0;
+            border-left: none;
+        }
+
+        .toggle-group button.active {
+            background: var(--accent-dim);
+            border-color: var(--accent);
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .slider-row input[type="range"] {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            outline: none;
+            border: none;
+            padding: 0;
+        }
+
+        .slider-row input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+
+        .slider-val {
+            font-size: 0.85rem;
+            color: var(--accent);
+            font-weight: 600;
+            min-width: 42px;
+            text-align: right;
+        }
+
+        /* ============================================
+           STATS
+           ============================================ */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .stats-row { grid-template-columns: 1fr; }
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.25rem;
+            text-align: center;
+        }
+
+        .stat-card .stat-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--muted);
+            margin-bottom: 0.35rem;
+        }
+
+        .stat-card .stat-value {
+            font-size: 1.6rem;
+            font-weight: 700;
+        }
+
+        .stat-card .stat-sub {
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-top: 0.2rem;
+        }
+
+        .stat-green .stat-value { color: var(--green); }
+        .stat-blue .stat-value { color: var(--blue); }
+        .stat-accent .stat-value { color: var(--accent); }
+
+        /* ============================================
+           CHART
+           ============================================ */
+        .chart-wrap {
+            position: relative;
+            width: 100%;
+            height: 320px;
+        }
+
+        /* ============================================
+           TAX TABLE
+           ============================================ */
+        .tax-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+
+        .tax-row:last-child { border-bottom: none; }
+
+        .tax-row .tax-label { color: var(--muted); }
+
+        .tax-row .tax-val { font-weight: 600; }
+
+        .tax-row.tax-total {
+            padding-top: 0.8rem;
+            margin-top: 0.4rem;
+            border-top: 1px solid var(--accent);
+            border-bottom: none;
+        }
+
+        .tax-row.tax-total .tax-label { color: var(--text); font-weight: 600; }
+        .tax-row.tax-total .tax-val { color: var(--green); font-size: 1rem; }
+
+        /* ============================================
+           PILLAR TABS
+           ============================================ */
+        .pillar-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            justify-content: center;
+        }
+
+        .pillar-tab {
+            padding: 0.5rem 1.5rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--muted);
+            font-family: var(--font);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .pillar-tab.active {
+            background: var(--accent-dim);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .pillar-tab:hover:not(.active) {
+            border-color: var(--muted);
+            color: var(--text);
+        }
+
+        .pillar-section { display: none; }
+        .pillar-section.active { display: block; }
+
+        /* ============================================
+           FOOTER
+           ============================================ */
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--muted);
+            font-size: 0.75rem;
+            border-top: 1px solid var(--border);
+            margin-top: 2rem;
+        }
+
+        .footer a { color: var(--accent); }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+    <div class="logo">
+        <div class="logo-mark">SB</div>
+        HSA Growth Engine
+    </div>
+    <div class="header-badge">Interactive Demo</div>
+</header>
+
+<!-- HERO -->
+<div class="container">
+    <div class="hero">
+        <h1>Save. Spend. <span>Invest.</span></h1>
+        <p>Plan your HSA contributions, see your tax savings, and project long-term compound growth. Your health savings account is more than a spending tool.</p>
+    </div>
+
+    <!-- PILLAR TABS -->
+    <div class="pillar-tabs">
+        <button class="pillar-tab active" data-tab="save" onclick="switchTab('save')">Save</button>
+        <button class="pillar-tab" data-tab="spend" onclick="switchTab('spend')">Spend</button>
+        <button class="pillar-tab" data-tab="invest" onclick="switchTab('invest')">Invest</button>
+    </div>
+
+    <!-- ============================
+         SAVE TAB
+         ============================ -->
+    <div id="tab-save" class="pillar-section active">
+
+        <div class="grid">
+            <!-- Contribution Calculator -->
+            <div class="card">
+                <div class="card-label">Contribution Calculator</div>
+
+                <div class="toggle-group">
+                    <button class="active" onclick="setCoverage('self')" id="btn-self">Self-only</button>
+                    <button onclick="setCoverage('family')" id="btn-family">Family</button>
+                </div>
+
+                <div class="field">
+                    <label>Your age</label>
+                    <input type="number" id="age" value="33" min="18" max="80" oninput="recalc()">
+                </div>
+
+                <div class="field">
+                    <label>Annual income</label>
+                    <input type="number" id="income" value="120000" min="0" step="1000" oninput="recalc()">
+                </div>
+
+                <div class="field">
+                    <label>Employer HSA contribution (annual)</label>
+                    <input type="number" id="employer" value="0" min="0" step="100" oninput="recalc()">
+                </div>
+
+                <div class="field">
+                    <label>Your planned contribution (annual)</label>
+                    <input type="number" id="personal" value="4300" min="0" step="100" oninput="recalc()">
+                </div>
+            </div>
+
+            <!-- Tax Savings -->
+            <div class="card">
+                <div class="card-label">Tax Savings Breakdown</div>
+
+                <div class="field">
+                    <label>Federal tax bracket</label>
+                    <select id="fed-bracket" onchange="recalc()">
+                        <option value="0.10">10%</option>
+                        <option value="0.12">12%</option>
+                        <option value="0.22" selected>22%</option>
+                        <option value="0.24">24%</option>
+                        <option value="0.32">32%</option>
+                        <option value="0.35">35%</option>
+                        <option value="0.37">37%</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label>State income tax rate</label>
+                    <input type="number" id="state-rate" value="5" min="0" max="15" step="0.1" oninput="recalc()">
+                </div>
+
+                <div id="tax-breakdown" style="margin-top: 1rem;">
+                    <!-- filled by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="stats-row" id="save-stats">
+            <!-- filled by JS -->
+        </div>
+
+    </div>
+
+    <!-- ============================
+         SPEND TAB
+         ============================ -->
+    <div id="tab-spend" class="pillar-section">
+        <div class="grid">
+            <div class="card">
+                <div class="card-label">Eligible Expenses Tracker</div>
+                <div class="field">
+                    <label>Annual medical expenses (estimated)</label>
+                    <input type="number" id="medical-expenses" value="2000" min="0" step="100" oninput="recalcSpend()">
+                </div>
+                <div class="field">
+                    <label>Annual dental expenses</label>
+                    <input type="number" id="dental-expenses" value="500" min="0" step="100" oninput="recalcSpend()">
+                </div>
+                <div class="field">
+                    <label>Annual vision expenses</label>
+                    <input type="number" id="vision-expenses" value="300" min="0" step="100" oninput="recalcSpend()">
+                </div>
+                <div class="field">
+                    <label>Annual prescriptions</label>
+                    <input type="number" id="rx-expenses" value="600" min="0" step="100" oninput="recalcSpend()">
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-label">Spend vs. Save Analysis</div>
+                <div id="spend-analysis">
+                    <!-- filled by JS -->
+                </div>
+                <div style="margin-top: 1rem;">
+                    <div class="chart-wrap" style="height: 220px;">
+                        <canvas id="spend-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-row" id="spend-stats">
+            <!-- filled by JS -->
+        </div>
+    </div>
+
+    <!-- ============================
+         INVEST TAB
+         ============================ -->
+    <div id="tab-invest" class="pillar-section">
+
+        <div class="grid">
+            <div class="card">
+                <div class="card-label">Growth Projector</div>
+
+                <div class="field">
+                    <label>Starting HSA balance</label>
+                    <input type="number" id="start-balance" value="0" min="0" step="500" oninput="recalcInvest()">
+                </div>
+
+                <div class="field">
+                    <label>Expected annual return</label>
+                    <div class="slider-row">
+                        <input type="range" id="return-rate" min="1" max="12" step="0.5" value="7" oninput="recalcInvest()">
+                        <span class="slider-val" id="return-val">7%</span>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>Time horizon (years)</label>
+                    <div class="slider-row">
+                        <input type="range" id="horizon" min="5" max="40" step="1" value="20" oninput="recalcInvest()">
+                        <span class="slider-val" id="horizon-val">20</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-label">Projected Growth</div>
+                <div class="chart-wrap">
+                    <canvas id="growth-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Invest Summary -->
+        <div class="stats-row" id="invest-stats">
+            <!-- filled by JS -->
+        </div>
+
+    </div>
+
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+    Built by <a href="https://sbc1-code.github.io/portfolio/" target="_blank">Sebastian Becerra</a>
+    &nbsp;|&nbsp; Interactive demo, not financial advice
+    &nbsp;|&nbsp; <a href="https://github.com/sbc1-code/healthequity-demo" target="_blank">Source</a>
+</footer>
+
+<script>
+/* ============================================
+   STATE
+   ============================================ */
+let coverage = 'self';
+let growthChart = null;
+let spendChart = null;
+
+const IRS_LIMITS = {
+    self: 4300,
+    family: 8550,
+    catchUp: 1000,
+    catchUpAge: 55
+};
+
+/* ============================================
+   TAB SWITCHING
+   ============================================ */
+function switchTab(tab) {
+    document.querySelectorAll('.pillar-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.pillar-section').forEach(s => s.classList.remove('active'));
+    document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+    document.getElementById(`tab-${tab}`).classList.add('active');
+
+    if (tab === 'invest') recalcInvest();
+    if (tab === 'spend') recalcSpend();
+}
+
+/* ============================================
+   COVERAGE TOGGLE
+   ============================================ */
+function setCoverage(type) {
+    coverage = type;
+    document.getElementById('btn-self').classList.toggle('active', type === 'self');
+    document.getElementById('btn-family').classList.toggle('active', type === 'family');
+
+    const limit = getLimit();
+    const personalEl = document.getElementById('personal');
+    if (parseInt(personalEl.value) > limit) personalEl.value = limit;
+
+    recalc();
+}
+
+function getLimit() {
+    const age = parseInt(document.getElementById('age').value) || 33;
+    let limit = IRS_LIMITS[coverage];
+    if (age >= IRS_LIMITS.catchUpAge) limit += IRS_LIMITS.catchUp;
+    return limit;
+}
+
+/* ============================================
+   SAVE TAB CALCULATIONS
+   ============================================ */
+function recalc() {
+    const age = parseInt(document.getElementById('age').value) || 33;
+    const income = parseFloat(document.getElementById('income').value) || 0;
+    const employer = parseFloat(document.getElementById('employer').value) || 0;
+    const personal = parseFloat(document.getElementById('personal').value) || 0;
+
+    const fedRate = parseFloat(document.getElementById('fed-bracket').value);
+    const stateRate = (parseFloat(document.getElementById('state-rate').value) || 0) / 100;
+    const ficaRate = 0.0765;
+
+    const limit = getLimit();
+    const totalContrib = Math.min(personal + employer, limit);
+    const yourContrib = Math.min(personal, limit - employer);
+
+    const fedSavings = yourContrib * fedRate;
+    const stateSavings = yourContrib * stateRate;
+    const ficaSavings = yourContrib * ficaRate;
+    const totalSavings = fedSavings + stateSavings + ficaSavings;
+
+    // Tax breakdown
+    const taxEl = document.getElementById('tax-breakdown');
+    taxEl.innerHTML = `
+        <div class="tax-row">
+            <span class="tax-label">IRS limit (${coverage === 'self' ? 'self-only' : 'family'}${age >= 55 ? ' + catch-up' : ''})</span>
+            <span class="tax-val">${fmt(limit)}</span>
+        </div>
+        <div class="tax-row">
+            <span class="tax-label">Employer contribution</span>
+            <span class="tax-val">${fmt(employer)}</span>
+        </div>
+        <div class="tax-row">
+            <span class="tax-label">Your contribution</span>
+            <span class="tax-val">${fmt(yourContrib)}</span>
+        </div>
+        <div class="tax-row">
+            <span class="tax-label">Federal tax savings (${(fedRate * 100).toFixed(0)}%)</span>
+            <span class="tax-val" style="color: var(--green);">${fmt(fedSavings)}</span>
+        </div>
+        <div class="tax-row">
+            <span class="tax-label">State tax savings (${(stateRate * 100).toFixed(1)}%)</span>
+            <span class="tax-val" style="color: var(--green);">${fmt(stateSavings)}</span>
+        </div>
+        <div class="tax-row">
+            <span class="tax-label">FICA savings (7.65%)</span>
+            <span class="tax-val" style="color: var(--green);">${fmt(ficaSavings)}</span>
+        </div>
+        <div class="tax-row tax-total">
+            <span class="tax-label">Total annual tax savings</span>
+            <span class="tax-val">${fmt(totalSavings)}</span>
+        </div>
+    `;
+
+    // Stats
+    const statsEl = document.getElementById('save-stats');
+    const remaining = limit - totalContrib;
+    statsEl.innerHTML = `
+        <div class="stat-card stat-accent">
+            <div class="stat-label">Total Contribution</div>
+            <div class="stat-value">${fmt(totalContrib)}</div>
+            <div class="stat-sub">of ${fmt(limit)} limit</div>
+        </div>
+        <div class="stat-card stat-green">
+            <div class="stat-label">Tax Savings</div>
+            <div class="stat-value">${fmt(totalSavings)}</div>
+            <div class="stat-sub">${((totalSavings / Math.max(yourContrib, 1)) * 100).toFixed(0)}% effective return</div>
+        </div>
+        <div class="stat-card stat-blue">
+            <div class="stat-label">Room Remaining</div>
+            <div class="stat-value">${fmt(Math.max(remaining, 0))}</div>
+            <div class="stat-sub">${remaining <= 0 ? 'Maxed out' : 'under the limit'}</div>
+        </div>
+    `;
+}
+
+/* ============================================
+   SPEND TAB CALCULATIONS
+   ============================================ */
+function recalcSpend() {
+    const medical = parseFloat(document.getElementById('medical-expenses').value) || 0;
+    const dental = parseFloat(document.getElementById('dental-expenses').value) || 0;
+    const vision = parseFloat(document.getElementById('vision-expenses').value) || 0;
+    const rx = parseFloat(document.getElementById('rx-expenses').value) || 0;
+    const totalSpend = medical + dental + vision + rx;
+
+    const personal = parseFloat(document.getElementById('personal').value) || 0;
+    const fedRate = parseFloat(document.getElementById('fed-bracket').value);
+    const stateRate = (parseFloat(document.getElementById('state-rate').value) || 0) / 100;
+
+    const taxRate = fedRate + stateRate + 0.0765;
+    const spendSavings = totalSpend * taxRate;
+    const surplus = Math.max(personal - totalSpend, 0);
+
+    const analysisEl = document.getElementById('spend-analysis');
+    analysisEl.innerHTML = `
+        <div class="tax-row">
+            <span class="tax-label">Total eligible expenses</span>
+            <span class="tax-val">${fmt(totalSpend)}</span>
+        </div>
+        <div class="tax-row">
+            <span class="tax-label">Tax savings on expenses</span>
+            <span class="tax-val" style="color: var(--green);">${fmt(spendSavings)}</span>
+        </div>
+        <div class="tax-row">
+            <span class="tax-label">Surplus to invest</span>
+            <span class="tax-val" style="color: var(--blue);">${fmt(surplus)}</span>
+        </div>
+    `;
+
+    // Stats
+    const statsEl = document.getElementById('spend-stats');
+    const costWithoutHsa = totalSpend;
+    const costWithHsa = totalSpend - spendSavings;
+    statsEl.innerHTML = `
+        <div class="stat-card stat-accent">
+            <div class="stat-label">Without HSA</div>
+            <div class="stat-value">${fmt(costWithoutHsa)}</div>
+            <div class="stat-sub">after-tax dollars</div>
+        </div>
+        <div class="stat-card stat-green">
+            <div class="stat-label">With HSA</div>
+            <div class="stat-value">${fmt(costWithHsa)}</div>
+            <div class="stat-sub">pre-tax dollars</div>
+        </div>
+        <div class="stat-card stat-blue">
+            <div class="stat-label">Available to Invest</div>
+            <div class="stat-value">${fmt(surplus)}</div>
+            <div class="stat-sub">after spending</div>
+        </div>
+    `;
+
+    // Chart
+    renderSpendChart(medical, dental, vision, rx);
+}
+
+function renderSpendChart(medical, dental, vision, rx) {
+    const ctx = document.getElementById('spend-chart').getContext('2d');
+
+    if (spendChart) spendChart.destroy();
+
+    spendChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Medical', 'Dental', 'Vision', 'Prescriptions'],
+            datasets: [{
+                data: [medical, dental, vision, rx],
+                backgroundColor: [
+                    'rgba(138, 154, 123, 0.8)',
+                    'rgba(91, 155, 213, 0.8)',
+                    'rgba(232, 168, 56, 0.8)',
+                    'rgba(111, 191, 115, 0.8)'
+                ],
+                borderColor: '#141414',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { color: '#888', font: { size: 11 }, padding: 12 }
+                }
+            }
+        }
+    });
+}
+
+/* ============================================
+   INVEST TAB CALCULATIONS
+   ============================================ */
+function recalcInvest() {
+    const startBalance = parseFloat(document.getElementById('start-balance').value) || 0;
+    const rate = parseFloat(document.getElementById('return-rate').value) / 100;
+    const horizon = parseInt(document.getElementById('horizon').value);
+    const annual = parseFloat(document.getElementById('personal').value) || 0;
+
+    document.getElementById('return-val').textContent = (rate * 100).toFixed(1) + '%';
+    document.getElementById('horizon-val').textContent = horizon;
+
+    // Build year-by-year data
+    const labels = [];
+    const balanceData = [];
+    const contribData = [];
+
+    let balance = startBalance;
+    let totalContrib = startBalance;
+
+    for (let y = 0; y <= horizon; y++) {
+        labels.push('Yr ' + y);
+        balanceData.push(Math.round(balance));
+        contribData.push(Math.round(totalContrib));
+
+        balance = (balance + annual) * (1 + rate);
+        totalContrib += annual;
+    }
+
+    const finalBalance = balanceData[balanceData.length - 1];
+    const totalContributed = contribData[contribData.length - 1];
+    const totalGrowth = finalBalance - totalContributed;
+
+    // Stats
+    const statsEl = document.getElementById('invest-stats');
+    statsEl.innerHTML = `
+        <div class="stat-card stat-accent">
+            <div class="stat-label">Total Contributed</div>
+            <div class="stat-value">${fmt(totalContributed)}</div>
+            <div class="stat-sub">over ${horizon} years</div>
+        </div>
+        <div class="stat-card stat-green">
+            <div class="stat-label">Investment Growth</div>
+            <div class="stat-value">${fmt(totalGrowth)}</div>
+            <div class="stat-sub">tax-free gains</div>
+        </div>
+        <div class="stat-card stat-blue">
+            <div class="stat-label">Projected Balance</div>
+            <div class="stat-value">${fmt(finalBalance)}</div>
+            <div class="stat-sub">at year ${horizon}</div>
+        </div>
+    `;
+
+    // Chart
+    renderGrowthChart(labels, balanceData, contribData);
+}
+
+function renderGrowthChart(labels, balanceData, contribData) {
+    const ctx = document.getElementById('growth-chart').getContext('2d');
+
+    if (growthChart) growthChart.destroy();
+
+    growthChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Projected Balance',
+                    data: balanceData,
+                    borderColor: '#8a9a7b',
+                    backgroundColor: 'rgba(138, 154, 123, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    borderWidth: 2
+                },
+                {
+                    label: 'Total Contributed',
+                    data: contribData,
+                    borderColor: '#5b9bd5',
+                    backgroundColor: 'rgba(91, 155, 213, 0.05)',
+                    fill: true,
+                    tension: 0,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    borderWidth: 2,
+                    borderDash: [5, 3]
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255,255,255,0.03)' },
+                    ticks: { color: '#888', font: { size: 10 }, maxTicksLimit: 10 }
+                },
+                y: {
+                    grid: { color: 'rgba(255,255,255,0.03)' },
+                    ticks: {
+                        color: '#888',
+                        font: { size: 10 },
+                        callback: v => '$' + (v >= 1000 ? (v / 1000).toFixed(0) + 'K' : v)
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    labels: { color: '#888', font: { size: 11 }, padding: 16 }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ctx.dataset.label + ': ' + fmt(ctx.parsed.y)
+                    }
+                }
+            }
+        }
+    });
+}
+
+/* ============================================
+   HELPERS
+   ============================================ */
+function fmt(n) {
+    return '$' + Math.round(n).toLocaleString('en-US');
+}
+
+/* ============================================
+   INIT
+   ============================================ */
+recalc();
+</script>
+</body>
+</html>
